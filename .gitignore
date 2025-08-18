@@ -1,11 +1,41 @@
 Packages
 .build
+Package.resolved
 xcuserdata
 *.xcodeproj
+*.xcworkspace
+*.xcuserstate
+*.xcscmblueprint
 DerivedData/
 .DS_Store
 db.sqlite
+.sqlite
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
 .swiftpm
+.index-store/
 .env
 .env.*
 !.env.example
+CafeEvents_*.ndjson
+CafeEvents_*.csv
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Coverage & profiling
+*.profraw
+*.profdata
+coverage/
+
+# Core ML compiled artifacts
+*.mlmodelc/
+
+# Project data/models
+Models/
