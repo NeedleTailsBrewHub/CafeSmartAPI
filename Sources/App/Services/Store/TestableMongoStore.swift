@@ -1,3 +1,10 @@
+//
+//  TestableMongoStore.swift
+//  CafeSmartAPI
+//
+//  Created by NeedleTails on 2025-08-19.
+//
+
 @preconcurrency import BSON
 import Crypto
 import Foundation

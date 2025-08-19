@@ -1,3 +1,10 @@
+//
+//  entrypoint.swift
+//  CafeSmartAPI
+//
+//  Created by NeedleTails on 2025-08-19.
+//
+
 import Logging
 import NIOCore
 import NIOPosix

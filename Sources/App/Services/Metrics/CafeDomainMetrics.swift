@@ -1,3 +1,10 @@
+//
+//  CafeDomainMetrics.swift
+//  CafeSmartAPI
+//
+//  Created by NeedleTails on 2025-08-19.
+//
+
 import Foundation
 import Metrics
 import Vapor
