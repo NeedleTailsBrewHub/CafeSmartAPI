@@ -2,8 +2,15 @@
 //  LoyaltyController.swift
 //  CafeSmartAPI
 //
-//  Created by NeedleTails on 2025-08-19.
+//  Created by NeedleTails on 8/8/25.
 //
+//  Copyright (c) 2025 NeedleTails Organization.
+//
+//  This project is licensed under the MIT License.
+//
+//  See the LICENSE file for more information.
+//
+//  This file is part of the CafeSmartAPI Project
 
 @preconcurrency import BSON
 import MongoKitten
@@ -31,11 +38,17 @@ struct LoyaltyRedeemRequest: Content {
     let points: Int
 }
 
-struct LoyaltyAccountPublic: Content {
+struct LoyaltyAccountPublic: Content, AsyncResponseEncodable {
     let id: String
     let userId: String
     let points: Int
     let tier: String
+    public func encodeResponse(for request: Request) async throws -> Response {
+        var headers = HTTPHeaders()
+        headers.add(name: .contentType, value: "application/bson")
+        let body = try BSONEncoder().encode(self)
+        return .init(status: .ok, headers: headers, body: .init(buffer: body.makeByteBuffer()))
+    }
 }
 
 actor LoyaltyController {

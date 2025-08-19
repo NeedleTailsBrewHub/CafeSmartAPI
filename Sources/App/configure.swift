@@ -1,7 +1,3 @@
-import JWT
-import Metrics
-import MongoKitten
-import NIOSSL
 //
 //  configure.swift
 //  CafeSmartAPI
@@ -10,13 +6,16 @@ import NIOSSL
 //
 //  Copyright (c) 2025 NeedleTails Organization.
 //
-//  This project is proprietary and confidential.
+//  This project is licensed under the MIT License.
 //
-//  All rights reserved. Unauthorized copying, distribution, or use
-//  of this software is strictly prohibited.
+//  See the LICENSE file for more information.
 //
 //  This file is part of the CafeSmartAPI Project
-//
+
+import JWT
+import Metrics
+import MongoKitten
+import NIOSSL
 import Vapor
 import VaporSecurityHeaders
 
@@ -73,8 +72,9 @@ public func configure(_ app: Application) async throws {
   let useTestStore = app.environment == .testing
     || useTestStoreEnv == "1" || useTestStoreEnv == "true" || useTestStoreEnv == "yes"
   if useTestStore {
-    // In tests, never seed to keep counts deterministic
-    app.mongoStore = TestableMongoStore(seedDummyData: false)
+    // In tests, never seed to keep counts deterministic; in dev with test store, seed by default
+    let shouldSeed = app.environment == .testing ? false : true
+    app.mongoStore = TestableMongoStore(seedDummyData: shouldSeed)
   } else {
     let mongoURL = Environment.get("MONGO_URL") ?? ""
     try await app.initializeMongoDB(connectionString: mongoURL)

@@ -6,13 +6,11 @@
 //
 //  Copyright (c) 2025 NeedleTails Organization.
 //
-//  This project is proprietary and confidential.
+//  This project is licensed under the MIT License.
 //
-//  All rights reserved. Unauthorized copying, distribution, or use
-//  of this software is strictly prohibited.
+//  See the LICENSE file for more information.
 //
 //  This file is part of the CafeSmartAPI Project
-//
 
 @preconcurrency import BSON
 import Crypto
@@ -171,12 +169,12 @@ actor UserController {
         let body = try req.content.decode(UserUpdateRequest.self)
         if let email = body.email {
             user = User(
-                id: user.id, email: email.lowercased(), name: user.name, passwordHash: user.passwordHash,
+                id: user.id, email: email.lowercased(), name: user.name, isAdmin: user.isAdmin, passwordHash: user.passwordHash,
                 symmetricKey: user.symmetricKey, createdAt: user.createdAt)
         }
         if let name = body.name {
             user = User(
-                id: user.id, email: user.email, name: name, passwordHash: user.passwordHash,
+                id: user.id, email: user.email, name: name, isAdmin: user.isAdmin, passwordHash: user.passwordHash,
                 symmetricKey: user.symmetricKey, createdAt: user.createdAt)
         }
         let updated = try await req.store.updateUser(user)

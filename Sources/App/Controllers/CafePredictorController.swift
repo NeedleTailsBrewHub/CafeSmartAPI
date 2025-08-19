@@ -2,8 +2,15 @@
 //  CafePredictorController.swift
 //  CafeSmartAPI
 //
-//  Created by NeedleTails on 2025-08-19.
+//  Created by NeedleTails on 8/8/25.
 //
+//  Copyright (c) 2025 NeedleTails Organization.
+//
+//  This project is licensed under the MIT License.
+//
+//  See the LICENSE file for more information.
+//
+//  This file is part of the CafeSmartAPI Project
 
 @preconcurrency import BSON
 import MongoKitten
@@ -1014,12 +1021,11 @@ actor CafePredictorController {
         try await instantiateModel(req: req, kind: kind)
 
         // Trigger a background sweep to notify runningLow after upload
-        Task { [app = req.application] in
-            let results = await self.computeRestockDecisions(app: app)
-            for r in results where r.decision.needRestock {
-                await app.realtime.publish(.inventory(.runningLow(r.item)), to: .merchant)
+        
+            let results = await self.computeRestockDecisions(app: req.application)
+            for result in results where result.decision.needRestock {
+                await req.application.realtime.publish(.inventory(.runningLow(result.item)), to: .merchant)
             }
-        }
         // Start daily scheduler after first successful upload (non-testing)
         ensureDailySweepScheduled(app: req.application)
         return ModelUploadResponse(
@@ -1216,7 +1222,7 @@ actor CafePredictorController {
         }
         var items: [InventoryItem] = []
         for try await doc in app.mongoDB["inventory_items"].find() {
-            if let item = try? InventoryItem.fromDocument(doc) { items.append(item) }
+            if let item = try? BSONDecoder().decode(InventoryItem.self, from: doc) { items.append(item) }
         }
         return items
     }

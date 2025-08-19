@@ -6,13 +6,12 @@
 //
 //  Copyright (c) 2025 NeedleTails Organization.
 //
-//  This project is proprietary and confidential.
+//  This project is licensed under the MIT License.
 //
-//  All rights reserved. Unauthorized copying, distribution, or use
-//  of this software is strictly prohibited.
+//  See the LICENSE file for more information.
 //
 //  This file is part of the CafeSmartAPI Project
-//
+
 import BSON
 import Vapor
 
@@ -95,5 +94,17 @@ extension BSONDecoder: @retroactive ContentDecoder {
     -> D where D: Decodable
   {
     return try self.decode(decodable, from: Document(buffer: body))
+  }
+}
+
+// Provide a convenient protocol to encode BSON directly as HTTP responses
+public protocol BSONResponseEncodable: AsyncResponseEncodable, Encodable {}
+
+public extension BSONResponseEncodable {
+  func encodeResponse(for request: Request) async throws -> Response {
+    var headers = HTTPHeaders()
+    headers.add(name: .contentType, value: "application/bson")
+    let body = try BSONEncoder().encode(self)
+    return .init(status: .ok, headers: headers, body: .init(buffer: body.makeByteBuffer()))
   }
 }

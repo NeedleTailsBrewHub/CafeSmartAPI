@@ -2,8 +2,15 @@
 //  MongoCacheManager.swift
 //  CafeSmartAPI
 //
-//  Created by NeedleTails on 2025-08-19.
+//  Created by NeedleTails on 8/8/25.
 //
+//  Copyright (c) 2025 NeedleTails Organization.
+//
+//  This project is licensed under the MIT License.
+//
+//  See the LICENSE file for more information.
+//
+//  This file is part of the CafeSmartAPI Project
 
 @preconcurrency import BSON
 import Crypto
@@ -30,27 +37,30 @@ public actor MongoCacheManager: MongoStore {
     self.db = database
   }
 
+  // Internal wrapper for encrypted refresh tokens
+  private struct EncryptedObject: Codable, Sendable { let refreshToken: Data }
+
   // MARK: Orders
   public func create(order: Order) async throws -> Order {
-    try await db[orders].insert(order.toDocument())
+    try await db[orders].insert(try BSONEncoder().encode(order))
     return order
   }
 
   public func listOrders() async throws -> [Order] {
     var result: [Order] = []
-    for try await doc in db[orders].find() { result.append(try Order.fromDocument(doc)) }
+    for try await doc in db[orders].find() { result.append(try BSONDecoder().decode(Order.self, from: doc)) }
     return result
   }
 
   public func findOrder(by id: String) async throws -> Order? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[orders].findOne("_id" == oid) { return try Order.fromDocument(doc) }
+    if let doc = try await db[orders].findOne("_id" == oid) { return try BSONDecoder().decode(Order.self, from: doc) }
     return nil
   }
 
   public func update(order: Order) async throws -> Order {
     guard let oid = ObjectId(order.id) else { throw Errors.notFound }
-    _ = try await db[orders].updateOne(where: "_id" == oid, to: order.toDocument(using: oid))
+    _ = try await db[orders].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(order))
     return order
   }
 
@@ -61,20 +71,20 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Inventory
   public func create(inventoryItem: InventoryItem) async throws -> InventoryItem {
-    try await db[inventory].insert(inventoryItem.toDocument())
+    try await db[inventory].insert(try BSONEncoder().encode(inventoryItem))
     return inventoryItem
   }
 
   public func listInventory() async throws -> [InventoryItem] {
     var result: [InventoryItem] = []
-    for try await doc in db[inventory].find() { result.append(try InventoryItem.fromDocument(doc)) }
+    for try await doc in db[inventory].find() { result.append(try BSONDecoder().decode(InventoryItem.self, from: doc)) }
     return result
   }
 
   public func findInventory(by id: String) async throws -> InventoryItem? {
     guard let oid = ObjectId(id) else { return nil }
     if let doc = try await db[inventory].findOne("_id" == oid) {
-      return try InventoryItem.fromDocument(doc)
+      return try BSONDecoder().decode(InventoryItem.self, from: doc)
     }
     return nil
   }
@@ -82,7 +92,7 @@ public actor MongoCacheManager: MongoStore {
   public func update(inventoryItem: InventoryItem) async throws -> InventoryItem {
     guard let oid = ObjectId(inventoryItem.id) else { throw Errors.notFound }
     _ = try await db[inventory].updateOne(
-      where: "_id" == oid, to: inventoryItem.toDocument(using: oid))
+      where: "_id" == oid, to: try BSONEncoder().encode(inventoryItem))
     return inventoryItem
   }
 
@@ -93,25 +103,25 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Menu
   public func create(menuItem: MenuItem) async throws -> MenuItem {
-    try await db[menu].insert(menuItem.toDocument())
+    try await db[menu].insert(try BSONEncoder().encode(menuItem))
     return menuItem
   }
 
   public func listMenu() async throws -> [MenuItem] {
     var result: [MenuItem] = []
-    for try await doc in db[menu].find() { result.append(try MenuItem.fromDocument(doc)) }
+    for try await doc in db[menu].find() { result.append(try BSONDecoder().decode(MenuItem.self, from: doc)) }
     return result
   }
 
   public func findMenuItem(by id: String) async throws -> MenuItem? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[menu].findOne("_id" == oid) { return try MenuItem.fromDocument(doc) }
+    if let doc = try await db[menu].findOne("_id" == oid) { return try BSONDecoder().decode(MenuItem.self, from: doc) }
     return nil
   }
 
   public func update(menuItem: MenuItem) async throws -> MenuItem {
     guard let oid = ObjectId(menuItem.id) else { throw Errors.notFound }
-    _ = try await db[menu].updateOne(where: "_id" == oid, to: menuItem.toDocument(using: oid))
+    _ = try await db[menu].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(menuItem))
     return menuItem
   }
 
@@ -122,23 +132,19 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Reservations
   public func create(reservation: Reservation) async throws -> Reservation {
-    try await db[reservations].insert(reservation.toDocument())
+    try await db[reservations].insert(try BSONEncoder().encode(reservation))
     return reservation
   }
 
   public func listReservations() async throws -> [Reservation] {
     var result: [Reservation] = []
-    for try await doc in db[reservations].find() {
-      result.append(try Reservation.fromDocument(doc))
-    }
+    for try await doc in db[reservations].find() { result.append(try BSONDecoder().decode(Reservation.self, from: doc)) }
     return result
   }
 
   public func findReservation(by id: String) async throws -> Reservation? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[reservations].findOne("_id" == oid) {
-      return try Reservation.fromDocument(doc)
-    }
+    if let doc = try await db[reservations].findOne("_id" == oid) { return try BSONDecoder().decode(Reservation.self, from: doc) }
     return nil
   }
 
@@ -149,37 +155,37 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Users
   public func createUser(_ user: User) async throws {
-    try await db[users].insert(user.toDocument())
+    try await db[users].insert(try BSONEncoder().encode(user))
   }
 
   public func listUsers() async throws -> [User] {
     var result: [User] = []
-    for try await doc in db[users].find() { result.append(try User.fromDocument(doc)) }
+    for try await doc in db[users].find() { result.append(try BSONDecoder().decode(User.self, from: doc)) }
     return result
   }
 
   public func findUser(byId id: String) async throws -> User? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[users].findOne("_id" == oid) { return try User.fromDocument(doc) }
+    if let doc = try await db[users].findOne("_id" == oid) { return try BSONDecoder().decode(User.self, from: doc) }
     return nil
   }
 
   public func findUser(byEmail emailLowercased: String) async throws -> User? {
     if let doc = try await db[users].findOne("email" == emailLowercased) {
-      return try User.fromDocument(doc)
+      return try BSONDecoder().decode(User.self, from: doc)
     }
     return nil
   }
 
   public func updateUser(_ user: User) async throws -> User {
     guard let oid = ObjectId(user.id) else { throw Errors.notFound }
-    _ = try await db[users].updateOne(where: "_id" == oid, to: user.toDocument(using: oid))
+    _ = try await db[users].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(user))
     return user
   }
 
   public func updatePassword(user: User) async throws {
     guard let oid = ObjectId(user.id) else { throw Errors.notFound }
-    _ = try await db[users].updateOne(where: "_id" == oid, to: user.toDocument(using: oid))
+    _ = try await db[users].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(user))
   }
 
   public func deleteUser(id: String) async throws {
@@ -202,8 +208,7 @@ public actor MongoCacheManager: MongoStore {
   public func findUser(refreshToken: Data) async throws -> User? {
     for try await doc in db[refresh].find() {
       if let enc = try? BSONDecoder().decode(EncryptedObject.self, from: doc),
-        enc.refreshToken == refreshToken
-      {
+        enc.refreshToken == refreshToken {
         return nil
       }
     }
@@ -246,33 +251,31 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Recipes
   public func create(recipe: Recipe) async throws -> Recipe {
-    try await db[recipesCol].insert(recipe.toDocument())
+    try await db[recipesCol].insert(try BSONEncoder().encode(recipe))
     return recipe
   }
 
   public func listRecipes() async throws -> [Recipe] {
     var result: [Recipe] = []
-    for try await doc in db[recipesCol].find() { result.append(try Recipe.fromDocument(doc)) }
+    for try await doc in db[recipesCol].find() { result.append(try BSONDecoder().decode(Recipe.self, from: doc)) }
     return result
   }
 
   public func findRecipe(by id: String) async throws -> Recipe? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[recipesCol].findOne("_id" == oid) { return try Recipe.fromDocument(doc) }
+    if let doc = try await db[recipesCol].findOne("_id" == oid) { return try BSONDecoder().decode(Recipe.self, from: doc) }
     return nil
   }
 
   public func findRecipes(menuItemId: String) async throws -> [Recipe] {
     var result: [Recipe] = []
-    for try await doc in db[recipesCol].find(["menuItemId": menuItemId]) {
-      result.append(try Recipe.fromDocument(doc))
-    }
+    for try await doc in db[recipesCol].find(["menuItemId": menuItemId]) { result.append(try BSONDecoder().decode(Recipe.self, from: doc)) }
     return result
   }
 
   public func update(recipe: Recipe) async throws -> Recipe {
     guard let oid = ObjectId(recipe.id) else { throw Errors.notFound }
-    _ = try await db[recipesCol].updateOne(where: "_id" == oid, to: recipe.toDocument(using: oid))
+    _ = try await db[recipesCol].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(recipe))
     return recipe
   }
 
@@ -283,25 +286,25 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Seating Areas
   public func create(seatingArea: SeatingArea) async throws -> SeatingArea {
-    try await db[seatingAreasCol].insert(seatingArea.toDocument())
+    try await db[seatingAreasCol].insert(try BSONEncoder().encode(seatingArea))
     return seatingArea
   }
 
   public func listSeatingAreas() async throws -> [SeatingArea] {
     var result: [SeatingArea] = []
-    for try await doc in db[seatingAreasCol].find() { result.append(try SeatingArea.fromDocument(doc)) }
+    for try await doc in db[seatingAreasCol].find() { result.append(try BSONDecoder().decode(SeatingArea.self, from: doc)) }
     return result
   }
 
   public func findSeatingArea(by id: String) async throws -> SeatingArea? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[seatingAreasCol].findOne("_id" == oid) { return try SeatingArea.fromDocument(doc) }
+    if let doc = try await db[seatingAreasCol].findOne("_id" == oid) { return try BSONDecoder().decode(SeatingArea.self, from: doc) }
     return nil
   }
 
   public func update(seatingArea: SeatingArea) async throws -> SeatingArea {
     guard let oid = ObjectId(seatingArea.id) else { throw Errors.notFound }
-    _ = try await db[seatingAreasCol].updateOne(where: "_id" == oid, to: seatingArea.toDocument(using: oid))
+    _ = try await db[seatingAreasCol].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(seatingArea))
     return seatingArea
   }
 
@@ -316,31 +319,31 @@ public actor MongoCacheManager: MongoStore {
 
   // MARK: Tables
   public func create(table: Table) async throws -> Table {
-    try await db[tablesCol].insert(table.toDocument())
+    try await db[tablesCol].insert(try BSONEncoder().encode(table))
     return table
   }
 
   public func listTables() async throws -> [Table] {
     var result: [Table] = []
-    for try await doc in db[tablesCol].find() { result.append(try Table.fromDocument(doc)) }
+    for try await doc in db[tablesCol].find() { result.append(try BSONDecoder().decode(Table.self, from: doc)) }
     return result
   }
 
   public func findTable(by id: String) async throws -> Table? {
     guard let oid = ObjectId(id) else { return nil }
-    if let doc = try await db[tablesCol].findOne("_id" == oid) { return try Table.fromDocument(doc) }
+    if let doc = try await db[tablesCol].findOne("_id" == oid) { return try BSONDecoder().decode(Table.self, from: doc) }
     return nil
   }
 
   public func listTables(in areaId: String) async throws -> [Table] {
     var result: [Table] = []
-    for try await doc in db[tablesCol].find(["areaId": areaId]) { result.append(try Table.fromDocument(doc)) }
+    for try await doc in db[tablesCol].find(["areaId": areaId]) { result.append(try BSONDecoder().decode(Table.self, from: doc)) }
     return result
   }
 
   public func update(table: Table) async throws -> Table {
     guard let oid = ObjectId(table.id) else { throw Errors.notFound }
-    _ = try await db[tablesCol].updateOne(where: "_id" == oid, to: table.toDocument(using: oid))
+    _ = try await db[tablesCol].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(table))
     return table
   }
 
@@ -352,16 +355,16 @@ public actor MongoCacheManager: MongoStore {
   // MARK: Business Config
   public func upsertBusinessConfig(_ config: BusinessConfig) async throws -> BusinessConfig {
     if let oid = ObjectId(config.id) {
-      _ = try await db[businessConfigCol].updateOne(where: "_id" == oid, to: config.toDocument(using: oid))
+      _ = try await db[businessConfigCol].updateOne(where: "_id" == oid, to: try BSONEncoder().encode(config))
       return config
     } else {
-      try await db[businessConfigCol].insert(config.toDocument())
+      try await db[businessConfigCol].insert(try BSONEncoder().encode(config))
       return config
     }
   }
 
   public func getBusinessConfig() async throws -> BusinessConfig? {
-    if let doc = try await db[businessConfigCol].findOne() { return try BusinessConfig.fromDocument(doc) }
+    if let doc = try await db[businessConfigCol].findOne() { return try BSONDecoder().decode(BusinessConfig.self, from: doc) }
     return nil
   }
 }

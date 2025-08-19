@@ -1,9 +1,17 @@
 //
 //  Predictions.swift
-//  cafe-smart-api
+//  CafeSmartAPI
 //
-//  Created by Cole M on 8/12/25.
+//  Created by NeedleTails on 8/8/25.
 //
+//  Copyright (c) 2025 NeedleTails Organization.
+//
+//  This project is licensed under the MIT License.
+//
+//  See the LICENSE file for more information.
+//
+//  This file is part of the CafeSmartAPI Project
+
 import Foundation
 import Vapor
 

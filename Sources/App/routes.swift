@@ -1,4 +1,3 @@
-import MongoKitten
 //
 //  routes.swift
 //  CafeSmartAPI
@@ -7,13 +6,13 @@ import MongoKitten
 //
 //  Copyright (c) 2025 NeedleTails Organization.
 //
-//  This project is proprietary and confidential.
+//  This project is licensed under the MIT License.
 //
-//  All rights reserved. Unauthorized copying, distribution, or use
-//  of this software is strictly prohibited.
+//  See the LICENSE file for more information.
 //
 //  This file is part of the CafeSmartAPI Project
-//
+
+import MongoKitten
 import Vapor
 
 func routes(_ app: Application) throws {
