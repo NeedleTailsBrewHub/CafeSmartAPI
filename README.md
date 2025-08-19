@@ -57,6 +57,16 @@ docker run --rm -p 8080:8080 \
 
 A sample `docker-compose.yml` is included; customize environment variables as needed.
 
+Environment file
+----------------
+
+Copy `env.example` to `.env` and adjust values, then `source .env` (or use your shell/env manager):
+
+```bash
+cp env.example .env
+source .env
+```
+
 Configuration
 -------------
 
