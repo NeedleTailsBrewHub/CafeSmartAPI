@@ -33,7 +33,7 @@ Server: http://localhost:8080
   - MONGO_URL: MongoDB URI, e.g. `mongodb://localhost:27017/cafesmart`. If unset and `USE_TEST_STORE=true`, uses in-memory store.
   - HMAC_SECRET: JWT HMAC signing secret (long random string).
   - ADMIN_USERNAMES: Comma-separated admin emails.
-  - USE_TEST_STORE: `true/1/yes` to use in-memory store.
+  - USE_TEST_STORE: `true` to use in-memory store.
 
 - TLS (production)
   - API_LOCAL_FULL_CHAIN: Full chain cert PEM path (relative to CWD).
