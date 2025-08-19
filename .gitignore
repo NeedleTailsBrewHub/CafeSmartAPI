@@ -1,3 +1,15 @@
+.DS_Store
+.build/
+.swiftpm/
+.vscode/
+/.env
+*.pem
+*.key
+*.crt
+**/*.mlmodelc
+/.idea/
+/.fleet/
+/.history/
 Packages
 .build
 Package.resolved
