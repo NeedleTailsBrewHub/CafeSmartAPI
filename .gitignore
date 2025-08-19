@@ -1,53 +1,56 @@
+# macOS
 .DS_Store
-.build/
-.swiftpm/
-.vscode/
-/.env
-*.pem
-*.key
-*.crt
-**/*.mlmodelc
-/.idea/
-/.fleet/
-/.history/
-Packages
-.build
-Package.resolved
-xcuserdata
+
+# Build artifacts & caches
+/.build/
+/DerivedData/
+/.index-store/
+/build/
+/.coverage/
+/coverage/
+/*.profdata
+/*.profraw
+
+# Swift Package Manager
+/.swiftpm/
+/Package.resolved
+
+# Xcode
 *.xcodeproj
 *.xcworkspace
 *.xcuserstate
 *.xcscmblueprint
-DerivedData/
-.DS_Store
-db.sqlite
-.sqlite
-*.sqlite
-*.sqlite-journal
-*.sqlite-shm
-*.sqlite-wal
-.swiftpm
-.index-store/
-.env
-.env.*
-!.env.example
-CafeEvents_*.ndjson
-CafeEvents_*.csv
-
-# Editors/IDE
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# Coverage & profiling
-*.profraw
-*.profdata
-coverage/
+xcuserdata/
 
 # Core ML compiled artifacts
 *.mlmodelc/
 
 # Project data/models
-Models/
+/Models/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Certificates & keys
+*.pem
+*.key
+*.crt
+
+# Database
+*.sqlite*
+db.sqlite
+
+# Logs
+*.log
+
+# Editors / IDE
+.vscode/
+.idea/
+/.fleet/
+/.history/
+
+# Exported data
+CafeEvents_*.ndjson
+CafeEvents_*.csv
