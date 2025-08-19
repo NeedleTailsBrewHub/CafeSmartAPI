@@ -60,10 +60,28 @@ A sample `docker-compose.yml` is included; customize environment variables as ne
 Configuration
 -------------
 
-- MONGO_URL: MongoDB connection string. Omit or set `USE_TEST_STORE=true` to use the in-memory test store.
-- HMAC_SECRET: JWT HMAC signing secret.
-- ADMIN_USERNAMES: Optional comma-separated admin emails.
-- TLS (prod): point `API_LOCAL_FULL_CHAIN` and `API_LOCAL_PRIV_KEY` to your cert/key paths if running with TLS in production mode.
+- Core
+  - MONGO_URL: MongoDB connection string. Example: `mongodb://localhost:27017/cafesmart`. If unset and `USE_TEST_STORE=true`, the in-memory store is used.
+  - HMAC_SECRET: JWT HMAC signing secret used to sign tokens. Choose a long random string.
+  - ADMIN_USERNAMES: Optional comma-separated list of admin emails. Matches users whose `email` is in this list OR users created with `isAdmin=true`.
+  - USE_TEST_STORE: When `true`/`1`/`yes`, use the in-memory `TestableMongoStore` instead of MongoDB. In tests this is enabled by default.
+
+- TLS (production only)
+  - API_LOCAL_FULL_CHAIN: Path (relative to CWD) to your full chain certificate PEM. Used when `--env production`.
+  - API_LOCAL_PRIV_KEY: Path (relative to CWD) to your private key PEM. Used when `--env production`.
+
+- Metrics (optional)
+  - CAFE_METRICS_COLLECTION: MongoDB collection name for metrics. Default: `cafe_metrics`.
+  - CAFE_METRICS_FLUSH_SECONDS: Background flush interval in seconds. Default: `43200` (12h).
+  - CAFE_METRICS_MAX_BATCH: Max records per batch write. Default: `512`.
+  - CAFE_METRICS_MAX_WRITE_BYTES: Max bytes per write. Default: `10000000` (10MB).
+  - CAFE_METRICS_MAX_WRITE_COUNT: Max documents per write. Default: `1000`.
+
+- Data seeding (testing/dev only)
+  - SEED_TEST_DATA: When `true`, seeds the in-memory store with rich dummy data.
+  - DUMMY_DAYS_BACK: Number of historical days to generate for tests (default ~180).
+  - DUMMY_BASE_ORDERS_MIN / DUMMY_BASE_ORDERS_MAX: Baseline order counts range per hour.
+  - DUMMY_MAX_ITEMS_PER_ORDER: Max items per generated order.
 
 Running Tests
 -------------
