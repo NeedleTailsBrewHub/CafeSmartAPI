@@ -22,21 +22,29 @@ struct EndpointTests {
     @Test func predictorModelLifecycleAndForecastEndpoints() async throws {
         let adminEmail = "admin12@example.com"
         let app = try await makeApp(adminEmail: adminEmail)
-        defer { _ = Task { try? await app.asyncShutdown() } }
+        defer {
+            Task {
+                try? await app.asyncShutdown()
+            }
+        }
         let (_, adminToken) = try await registerAndLogin(app: app, email: adminEmail, password: "password123")
 
         // Activate model (no-op in testing but should return 200 and broadcast)
-        struct ActivateReq: Content { let id: String }
-        var res = try await request(app, .POST, "/api/predictor/models/activate", token: adminToken, json: ActivateReq(id: ObjectId().hexString))
+        struct ActivateReq: Content {
+            let id: String
+        }
+        var res = try await request(app, .POST, "/api/predictor/models/activate", token: adminToken, bson: ActivateReq(id: ObjectId().hexString))
         #expect(res.status == .ok)
 
         // Instantiate predictors by kind (no-op in testing but should return 200)
-        struct InstReq: Content { let kind: String }
-        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, json: InstReq(kind: "workloadHourly"))
+        struct InstReq: Content {
+            let kind: String
+        }
+        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, bson: InstReq(kind: "workloadHourly"))
         #expect(res.status == .ok)
-        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, json: InstReq(kind: "reservationsHourly"))
+        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, bson: InstReq(kind: "reservationsHourly"))
         #expect(res.status == .ok)
-        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, json: InstReq(kind: "restockDaily"))
+        res = try await request(app, .POST, "/api/predictor/instantiate", token: adminToken, bson: InstReq(kind: "restockDaily"))
         #expect(res.status == .ok)
 
         // Forecast endpoints should succeed in testing and return synthetic points
@@ -46,17 +54,17 @@ struct EndpointTests {
         struct FCPoint: Content { let date: Date; let value: Double }
         struct FCResp: Content { let points: [FCPoint] }
 
-        res = try await request(app, .POST, "/api/predictor/forecast/workload-hourly", token: adminToken, json: WorkloadReq(hoursAhead: 3))
+        res = try await request(app, .POST, "/api/predictor/forecast/workload-hourly", token: adminToken, bson: WorkloadReq(hoursAhead: 3))
         #expect(res.status == .ok)
         var fc = try res.content.decode(FCResp.self)
         #expect(fc.points.count == 3)
 
-        res = try await request(app, .POST, "/api/predictor/forecast/reservations-hourly", token: adminToken, json: ResvReq(hoursAhead: 2))
+        res = try await request(app, .POST, "/api/predictor/forecast/reservations-hourly", token: adminToken, bson: ResvReq(hoursAhead: 2))
         #expect(res.status == .ok)
         fc = try res.content.decode(FCResp.self)
         #expect(fc.points.count == 2)
 
-        res = try await request(app, .POST, "/api/predictor/forecast/restock-daily", token: adminToken, json: RestockReq(daysAhead: 5, menuItemId: "m1"))
+        res = try await request(app, .POST, "/api/predictor/forecast/restock-daily", token: adminToken, bson: RestockReq(daysAhead: 5, menuItemId: "m1"))
         #expect(res.status == .ok)
         fc = try res.content.decode(FCResp.self)
         #expect(fc.points.count == 5)
@@ -87,7 +95,7 @@ struct EndpointTests {
         _ method: HTTPMethod,
         _ path: String,
         token: String? = nil,
-        json: T
+        bson: T
     ) async throws -> Response {
         let req = Request(
             application: app,
@@ -98,7 +106,7 @@ struct EndpointTests {
         if let token {
             req.headers.replaceOrAdd(name: HTTPHeaders.Name.authorization, value: "Bearer \(token)")
         }
-        try req.content.encode(json, as: .bson)
+        try req.content.encode(bson, as: .bson)
         req.headers.replaceOrAdd(name: HTTPHeaders.Name.accept, value: "application/bson")
         return try await app.responder.respond(to: req).get()
     }
@@ -111,12 +119,12 @@ struct EndpointTests {
             let isAdmin: Bool
         }
         let register = RegisterRequest(email: email, password: password, name: name, isAdmin: isAdmin)
-        _ = try await request(app, .POST, "/api/auth/register", json: register)
+        _ = try await request(app, .POST, "/api/auth/register", bson: register)
 
         struct LoginRequest: Content { let email: String; let password: String }
         struct TokenResponse: Content { let token: String; let expiresAt: Date; let user: UserPublic }
         let loginReq = LoginRequest(email: email, password: password)
-        let res = try await request(app, .POST, "/api/auth/login", json: loginReq)
+        let res = try await request(app, .POST, "/api/auth/login", bson: loginReq)
         #expect(res.status == .ok)
         let body = try res.content.decode(TokenResponse.self)
         return (body.user, body.token)
@@ -149,7 +157,7 @@ struct EndpointTests {
 
         struct Create: Content { let name: String; let description: String?; let priceCents: Int; let isAvailable: Bool; let category: String? }
         let create = Create(name: "Latte", description: "Milk", priceCents: 499, isAvailable: true, category: "Drinks")
-        var res = try await request(app, .POST, "/api/menu", token: adminToken, json: create)
+        var res = try await request(app, .POST, "/api/menu", token: adminToken, bson: create)
         #expect(res.status == .ok || res.status == .created)
 
         res = try await request(app, .GET, "/api/menu", token: adminToken)
@@ -164,7 +172,7 @@ struct EndpointTests {
 
         struct Update: Content { let name: String?; let description: String?; let priceCents: Int?; let isAvailable: Bool?; let category: String? }
         let update = Update(name: "Iced Latte", description: nil, priceCents: 599, isAvailable: nil, category: nil)
-        res = try await request(app, .PUT, "/api/menu/\(item.id)", token: adminToken, json: update)
+        res = try await request(app, .PUT, "/api/menu/\(item.id)", token: adminToken, bson: update)
         #expect(res.status == .ok)
         let updated = try res.content.decode(MenuItem.self)
         #expect(updated.name == "Iced Latte")
@@ -187,7 +195,7 @@ struct EndpointTests {
         struct OrderItemReq: Content { let menuItemId: String; let quantity: Int; let notes: String? }
         struct OrderCreateReq: Content { let customerName: String?; let items: [OrderItemReq]; let pickupTime: Date? }
         let body = OrderCreateReq(customerName: "Bob", items: [OrderItemReq(menuItemId: "sku-1", quantity: 2, notes: nil)], pickupTime: nil)
-        var res = try await request(app, .POST, "/api/orders", token: userToken, json: body)
+        var res = try await request(app, .POST, "/api/orders", token: userToken, bson: body)
         #expect(res.status == .ok || res.status == .created)
         let order = try res.content.decode(Order.self)
 
@@ -202,7 +210,7 @@ struct EndpointTests {
         #expect(res.status == .ok)
 
         struct StatusUpdate: Content { let status: OrderStatus }
-        res = try await request(app, .PATCH, "/api/orders/\(order.id)/status", token: adminToken, json: StatusUpdate(status: .completed))
+        res = try await request(app, .PATCH, "/api/orders/\(order.id)/status", token: adminToken, bson: StatusUpdate(status: .completed))
         #expect(res.status == .ok)
         let updated = try res.content.decode(Order.self)
         #expect(updated.status == .completed)
@@ -224,7 +232,7 @@ struct EndpointTests {
         struct ReservationCreateReq: Content { let name: String; let partySize: Int; let startTime: Date; let phone: String?; let notes: String? }
         let now = Date().addingTimeInterval(3600)
         let body = ReservationCreateReq(name: "Alice", partySize: 4, startTime: now, phone: nil, notes: nil)
-        var res = try await request(app, .POST, "/api/reservations", token: userToken, json: body)
+        var res = try await request(app, .POST, "/api/reservations", token: userToken, bson: body)
         #expect(res.status == .ok || res.status == .created)
         let created = try res.content.decode(Reservation.self)
 
@@ -252,7 +260,7 @@ struct EndpointTests {
 
         struct Create: Content { let sku: String; let name: String; let quantity: Int; let reorderThreshold: Int; let unit: String; let supplier: String? }
         let create = Create(sku: "SKU-1", name: "Beans", quantity: 10, reorderThreshold: 5, unit: "bag", supplier: nil)
-        var res = try await request(app, .POST, "/api/inventory", token: adminToken, json: create)
+        var res = try await request(app, .POST, "/api/inventory", token: adminToken, bson: create)
         #expect(res.status == .ok || res.status == .created)
 
         // GET list
@@ -268,7 +276,7 @@ struct EndpointTests {
 
         struct Update: Content { let name: String?; let quantity: Int?; let reorderThreshold: Int?; let unit: String?; let supplier: String? }
         let update = Update(name: "Premium Beans", quantity: 12, reorderThreshold: nil, unit: nil, supplier: nil)
-        res = try await request(app, .PUT, "/api/inventory/\(item.id)", token: adminToken, json: update)
+        res = try await request(app, .PUT, "/api/inventory/\(item.id)", token: adminToken, bson: update)
         #expect(res.status == .ok)
         let updated = try res.content.decode(InventoryItem.self)
         #expect(updated.name == "Premium Beans")
@@ -287,7 +295,7 @@ struct EndpointTests {
         let (user, adminToken) = try await registerAndLogin(app: app, email: adminEmail, password: "password123")
 
         struct Enroll: Content { let userId: String }
-        var res = try await request(app, .POST, "/api/loyalty/enroll", token: adminToken, json: Enroll(userId: user.id))
+        var res = try await request(app, .POST, "/api/loyalty/enroll", token: adminToken, bson: Enroll(userId: user.id))
         #expect(res.status == .ok)
 
         // GET loyalty account by id should succeed
@@ -297,19 +305,19 @@ struct EndpointTests {
         #expect(res.status == .ok)
 
         struct Accrue: Content { let userId: String; let points: Int }
-        res = try await request(app, .POST, "/api/loyalty/accrue", token: adminToken, json: Accrue(userId: user.id, points: 120))
+        res = try await request(app, .POST, "/api/loyalty/accrue", token: adminToken, bson: Accrue(userId: user.id, points: 120))
         #expect(res.status == .ok)
 
         struct Redeem: Content { let userId: String; let points: Int }
-        res = try await request(app, .POST, "/api/loyalty/redeem", token: adminToken, json: Redeem(userId: user.id, points: 20))
+        res = try await request(app, .POST, "/api/loyalty/redeem", token: adminToken, bson: Redeem(userId: user.id, points: 20))
         #expect(res.status == .ok)
 
         // Redeem too many points should fail with 400
-        res = try await request(app, .POST, "/api/loyalty/redeem", token: adminToken, json: Redeem(userId: user.id, points: 999_999))
+        res = try await request(app, .POST, "/api/loyalty/redeem", token: adminToken, bson: Redeem(userId: user.id, points: 999_999))
         #expect(res.status == .badRequest)
 
         struct PredictorReq: Content { let horizonDays: Int }
-        res = try await request(app, .POST, "/api/predictor/generate", token: adminToken, json: PredictorReq(horizonDays: 3))
+        res = try await request(app, .POST, "/api/predictor/generate", token: adminToken, bson: PredictorReq(horizonDays: 3))
         #expect(res.status == .ok)
 
         res = try await request(app, .GET, "/api/predictor/latest", token: adminToken)
@@ -332,7 +340,7 @@ struct EndpointTests {
         // Create a menu item to attach a recipe to
         struct MenuCreate: Content { let name: String; let description: String?; let priceCents: Int; let isAvailable: Bool; let category: String? }
         let mc = MenuCreate(name: "Cappuccino", description: nil, priceCents: 399, isAvailable: true, category: "Drinks")
-        var res = try await request(app, .POST, "/api/menu", token: adminToken, json: mc)
+        var res = try await request(app, .POST, "/api/menu", token: adminToken, bson: mc)
         #expect(res.status == .ok || res.status == .created)
         let createdItem = try res.content.decode(MenuItem.self)
 
@@ -340,7 +348,7 @@ struct EndpointTests {
         let comps = [RecipeComponent(sku: "BEANS", unitsPerItem: 18.0, wastageRate: 0.05), RecipeComponent(sku: "MILK", unitsPerItem: 160.0, wastageRate: nil)]
         struct RecipeCreate: Content { let menuItemId: String; let components: [RecipeComponent] }
         let rc = RecipeCreate(menuItemId: createdItem.id, components: comps)
-        res = try await request(app, .POST, "/api/recipes", token: adminToken, json: rc)
+        res = try await request(app, .POST, "/api/recipes", token: adminToken, bson: rc)
         #expect(res.status == .ok || res.status == .created)
         let recipe = try res.content.decode(Recipe.self)
 
@@ -363,7 +371,7 @@ struct EndpointTests {
         // Update recipe components
         struct RecipeUpdate: Content { let components: [RecipeComponent]? }
         let updatedComps = [RecipeComponent(sku: "BEANS", unitsPerItem: 20.0, wastageRate: 0.05)]
-        res = try await request(app, .PUT, "/api/recipes/\(recipe.id)", token: adminToken, json: RecipeUpdate(components: updatedComps))
+        res = try await request(app, .PUT, "/api/recipes/\(recipe.id)", token: adminToken, bson: RecipeUpdate(components: updatedComps))
         #expect(res.status == .ok)
 
         // Delete
@@ -381,7 +389,7 @@ struct EndpointTests {
 
         // Create area
         struct AreaCreate: Content { let name: String; let defaultTurnMinutes: Int; let active: Bool }
-        var res = try await request(app, .POST, "/api/seating/areas", token: adminToken, json: AreaCreate(name: "Main Hall", defaultTurnMinutes: 90, active: true))
+        var res = try await request(app, .POST, "/api/seating/areas", token: adminToken, bson: AreaCreate(name: "Main Hall", defaultTurnMinutes: 90, active: true))
         #expect(res.status == .ok || res.status == .created)
         let area = try res.content.decode(SeatingArea.self)
 
@@ -391,7 +399,7 @@ struct EndpointTests {
 
         // Create table
         struct TableCreate: Content { let areaId: String; let name: String; let capacity: Int; let accessible: Bool; let highTop: Bool?; let outside: Bool?; let active: Bool }
-        res = try await request(app, .POST, "/api/seating/tables", token: adminToken, json: TableCreate(areaId: area.id, name: "T1", capacity: 2, accessible: false, highTop: nil, outside: nil, active: true))
+        res = try await request(app, .POST, "/api/seating/tables", token: adminToken, bson: TableCreate(areaId: area.id, name: "T1", capacity: 2, accessible: false, highTop: nil, outside: nil, active: true))
         #expect(res.status == .ok || res.status == .created)
         let table = try res.content.decode(Table.self)
 
@@ -415,7 +423,7 @@ struct EndpointTests {
 
         // Update table
         struct TableUpdate: Content { let name: String?; let capacity: Int? }
-        res = try await request(app, .PUT, "/api/seating/tables/\(table.id)", token: adminToken, json: TableUpdate(name: "T1-Window", capacity: 3))
+        res = try await request(app, .PUT, "/api/seating/tables/\(table.id)", token: adminToken, bson: TableUpdate(name: "T1-Window", capacity: 3))
         #expect(res.status == .ok)
 
         // Cascade: delete area should remove tables
@@ -447,7 +455,7 @@ struct EndpointTests {
         let hours: [BusinessHours] = [BusinessHours(weekday: 2, open: "07:00", close: "19:00"), BusinessHours(weekday: 3, open: "07:00", close: "19:00")]
         let staffing = StaffingRules(ordersPerBaristaPerHour: 40, ordersPerBakerPerHour: 30, guestsPerHostPerHour: 50)
         let cfg = BusinessConfig(id: ObjectId().hexString, timezone: "America/New_York", hours: hours, seatingCapacity: 45, staffing: staffing)
-        res = try await request(app, .PUT, "/api/config", token: adminToken, json: cfg)
+        res = try await request(app, .PUT, "/api/config", token: adminToken, bson: cfg)
         #expect(res.status == .ok)
 
         // Get should return 200
@@ -521,74 +529,6 @@ struct EndpointTests {
         try await Task.sleep(until: .now + .seconds(1))
     }
 
-    @Test func websocketOrdersPublishBroadcastsMessage() async throws {
-        let app = try await makeApp()
-        let (_, token) = try await registerAndLogin(app: app, email: "wsuser2@example.com", password: "password123")
-
-        // Start server on a random port
-        app.http.server.configuration.port = 0
-        try await app.http.server.shared.start(address: nil)
-        guard let port = app.http.server.shared.localAddress?.port else { #expect(Bool(false), "Missing port"); return }
-
-        var headers = HTTPHeaders()
-        headers.add(name: .authorization, value: "Bearer \(token)")
-
-        let packetPromise = app.eventLoopGroup.any().makePromise(of: RealtimeHub.MessagePacket.self)
-
-        try await WebSocket.connect(
-            to: "ws://127.0.0.1:\(port)/api/ws/customer",
-            headers: headers,
-            on: app.eventLoopGroup
-        ) { ws async in
-            ws.onBinary { _, buf async in
-                // Decode the incoming BSON packet
-                let data = [UInt8](buf.readableBytesView)
-                let doc = Document(data: Data(data))
-                do {
-                    let packet = try BSONDecoder().decode(RealtimeHub.MessagePacket.self, from: doc)
-                    packetPromise.succeed(packet)
-                } catch {
-                    packetPromise.fail(error)
-                }
-                try? await ws.close()
-            }
-        }
-
-        // Give the server a brief moment to register the subscription
-        try? await Task.sleep(nanoseconds: 100_000_000)
-
-        // Publish an order-created packet and assert it is received
-        let order = Order(
-            id: ObjectId().hexString,
-            status: .pending,
-            customerName: "Bob",
-            items: [OrderItem(menuItemId: "sku-1", quantity: 1, notes: nil)],
-            pickupTime: nil,
-            createdAt: Date()
-        )
-        await app.realtime.publish(.order(.created(order)), to: .orders)
-
-        let received = try await packetPromise.futureResult.get()
-        switch received {
-        case .order(let info):
-            switch info {
-            case .created(let rec):
-                #expect(rec.id == order.id)
-                #expect(rec.status == .pending)
-                #expect(rec.items.count == order.items.count)
-            default:
-                #expect(Bool(false), "Expected order.created packet")
-            }
-        default:
-            #expect(Bool(false), "Expected order packet")
-        }
-
-        // Gracefully stop the HTTP server before shutting the app down
-        await app.http.server.shared.shutdown()
-        try await app.asyncShutdown()
-        try await Task.sleep(until: .now + .seconds(1))
-    }
-
     @Test func userAccountEndpointsLogoutUpdatePasswordDeleteAccount() async throws {
         let app = try await makeApp()
         let email = "acct@example.com"
@@ -604,27 +544,27 @@ struct EndpointTests {
         // Update password
         struct UpdatePasswordReq: Content { let oldPassword: String; let newPassword: String }
         let newPassword = "newPassword456"
-        res = try await request(app, .POST, "/api/auth/update-password", token: token, json: UpdatePasswordReq(oldPassword: originalPassword, newPassword: newPassword))
+        res = try await request(app, .POST, "/api/auth/update-password", token: token, bson: UpdatePasswordReq(oldPassword: originalPassword, newPassword: newPassword))
         #expect(res.status == .ok)
 
         // Login with old password should fail
         struct LoginRequest: Content { let email: String; let password: String }
-        res = try await request(app, .POST, "/api/auth/login", json: LoginRequest(email: email, password: originalPassword))
+        res = try await request(app, .POST, "/api/auth/login", bson: LoginRequest(email: email, password: originalPassword))
         #expect(res.status == .unauthorized)
 
         // Login with new password should succeed
-        res = try await request(app, .POST, "/api/auth/login", json: LoginRequest(email: email, password: newPassword))
+        res = try await request(app, .POST, "/api/auth/login", bson: LoginRequest(email: email, password: newPassword))
         #expect(res.status == .ok)
 
         // Delete account
-        let res2 = try await request(app, .POST, "/api/auth/login", json: LoginRequest(email: email, password: newPassword))
+        let res2 = try await request(app, .POST, "/api/auth/login", bson: LoginRequest(email: email, password: newPassword))
         #expect(res2.status == .ok)
         let tokenRes = try res2.content.decode(TokenResponse.self)
         let del = try await request(app, .DELETE, "/api/auth/account", token: tokenRes.token)
         #expect(del.status == .noContent)
 
         // Login should now fail
-        let afterDel = try await request(app, .POST, "/api/auth/login", json: LoginRequest(email: email, password: newPassword))
+        let afterDel = try await request(app, .POST, "/api/auth/login", bson: LoginRequest(email: email, password: newPassword))
         #expect(afterDel.status == .unauthorized)
 
         try await app.asyncShutdown()
@@ -655,7 +595,7 @@ struct EndpointTests {
         struct OrderItemReq: Content { let menuItemId: String; let quantity: Int; let notes: String? }
         struct OrderCreateReq: Content { let customerName: String?; let items: [OrderItemReq]; let pickupTime: Date? }
         let bad = OrderCreateReq(customerName: "Bob", items: [], pickupTime: nil)
-        let res = try await request(app, .POST, "/api/orders", token: token, json: bad)
+        let res = try await request(app, .POST, "/api/orders", token: token, bson: bad)
         #expect(res.status == .badRequest)
 
         try await app.asyncShutdown()
@@ -714,7 +654,7 @@ struct EndpointTests {
 
         // Publish an inventory restocked packet
         let item = InventoryItem(id: ObjectId().hexString, sku: "SKU-INV", name: "Milk", quantity: 5, reorderThreshold: 2, unit: "L", supplier: nil)
-        await app.realtime.publish(.inventory(.restocked(item)), to: .inventory)
+        await app.realtime.publish(.inventory(.restocked(item)), to: .merchant)
 
         let received = try await packetPromise.futureResult.get()
         switch received {

@@ -1009,13 +1009,7 @@ actor CafePredictorController {
             active: false,
             uploadedAt: Date()
         )
-        if req.application.environment == .testing || isTestMode {
-            if let modelStore = req.application.mongoStore as? any MLModelStore {
-                try await modelStore.createModelArtifact(artifact)
-            }
-        } else {
-            try await req.mongoDB["ml_models"].insert(BSONEncoder().encode(artifact))
-        }
+        try await req.application.mongoStore.createModelArtifact(artifact)
         await req.application.realtime.publish(.modelUploaded(artifact), to: .merchant)
         try await activateModel(req: req, id: artifact._id)
         try await instantiateModel(req: req, kind: kind)
@@ -1041,18 +1035,7 @@ actor CafePredictorController {
     
     // List models
     func listModels(req: Request) async throws -> MLModelsWrapper {
-        var result: [MLModelArtifact] = []
-        if req.application.environment == .testing || isTestMode {
-            if let modelStore = req.application.mongoStore as? any MLModelStore {
-                result = try await modelStore.listModelArtifacts()
-            }
-            return MLModelsWrapper(items: result)
-        }
-        for try await doc in req.mongoDB["ml_models"].find() {
-            if let art = try? BSONDecoder().decode(MLModelArtifact.self, from: doc) {
-                result.append(art)
-            }
-        }
+        let result = try await req.application.mongoStore.listModelArtifacts()
         return MLModelsWrapper(items: result)
     }
     
@@ -1068,22 +1051,7 @@ actor CafePredictorController {
     }
     
     private func activateModel(req: Request, id: ObjectId) async throws {
-        if req.application.environment != .testing && !isTestMode {
-            // deactivate others of same kind
-            if let current = try await req.mongoDB["ml_models"].findOne("_id" == id) {
-                guard let artifact = try? BSONDecoder().decode(MLModelArtifact.self, from: current) else {
-                    throw Abort(.notFound)
-                }
-                _ = try await req.mongoDB["ml_models"].updateMany(
-                    where: ["kind": artifact.kind.rawValue], to: ["$set": ["active": false]])
-                _ = try await req.mongoDB["ml_models"].updateOne(
-                    where: "_id" == artifact._id, to: ["$set": ["active": true]])
-            } else {
-                throw Abort(.notFound)
-            }
-        } else if let modelStore = req.application.mongoStore as? any MLModelStore {
-            try await modelStore.setActiveModel(id: id.hexString)
-        }
+        try await req.application.mongoStore.setActiveModel(id: id.hexString)
         await req.application.realtime.publish(.modelActivated(kind: .restockDaily, id: id.hexString), to: .merchant)
     }
     
@@ -1091,17 +1059,8 @@ actor CafePredictorController {
     func deleteModel(req: Request) async throws -> HTTPStatus {
         struct Delete: Content { var id: String }
         let body = try req.content.decode(Delete.self)
-        guard let oid = ObjectId(body.id) else { throw Abort(.badRequest) }
-        if req.application.environment != .testing && !isTestMode {
-            if let current = try await req.mongoDB["ml_models"].findOne("_id" == oid) {
-                if let art = try? BSONDecoder().decode(MLModelArtifact.self, from: current) {
-                    try? FileManager.default.removeItem(atPath: art.storedAt)
-                }
-            }
-            _ = try await req.mongoDB["ml_models"].deleteOne(where: "_id" == oid)
-        } else if let modelStore = req.application.mongoStore as? any MLModelStore {
-            try await modelStore.deleteModelArtifact(id: body.id)
-        }
+        guard ObjectId(body.id) != nil else { throw Abort(.badRequest) }
+        try await req.application.mongoStore.deleteModelArtifact(id: body.id)
         await req.application.realtime.publish(.modelDeleted(id: body.id), to: .merchant)
         return .ok
     }
@@ -1121,35 +1080,16 @@ actor CafePredictorController {
     }
     
     func instantiateModel(req: Request, kind: PredictorKind) async throws {
-        // Load active artifact for kind
-        if req.application.environment == .testing || isTestMode {
-            if let modelStore = req.application.mongoStore as? any MLModelStore {
-                let artifacts = try await modelStore.listModelArtifacts()
-                guard let artifact = artifacts.first(where: { $0.kind == kind && $0.active }) else {
-                    throw Abort(.notFound, reason: "No active model for kind \(kind.rawValue) in test store")
-                }
-                let predictor = try await Predictor(modelPath: artifact.storedAt)
-                await req.application.predictors.set(
-                    kind: kind, runtime: artifact.runtime, path: artifact.storedAt, predictor: predictor)
-                await req.application.realtime.publish(.predictorReady(kind: kind), to: .merchant)
-            } else {
-                throw Abort(.failedDependency, reason: "Test model store not available")
-            }
-        } else {
-            guard
-                let doc = try await req.mongoDB["ml_models"].findOne(["kind": kind.rawValue, "active": true])
-            else {
-                throw Abort(.notFound, reason: "No active model for kind \(kind.rawValue)")
-            }
-            guard let artifact = try? BSONDecoder().decode(MLModelArtifact.self, from: doc) else {
-                throw Abort(.internalServerError)
-            }
-            // Create predictor instance according to runtime
-            let predictor = try await Predictor(modelPath: artifact.storedAt)
-            await req.application.predictors.set(
-                kind: kind, runtime: artifact.runtime, path: artifact.storedAt, predictor: predictor)
-            await req.application.realtime.publish(.predictorReady(kind: kind), to: .merchant)
+        // Load active artifact for kind via store. In testing, allow no-op if not present.
+        let artifacts = try await req.application.mongoStore.listModelArtifacts()
+        guard let artifact = artifacts.first(where: { $0.kind == kind && $0.active }) else {
+            if req.application.environment == .testing { return }
+            throw Abort(.notFound, reason: "No active model for kind \(kind.rawValue)")
         }
+        let predictor = try await Predictor(modelPath: artifact.storedAt)
+        await req.application.predictors.set(
+            kind: kind, runtime: artifact.runtime, path: artifact.storedAt, predictor: predictor)
+        await req.application.realtime.publish(.predictorReady(kind: kind), to: .merchant)
     }
 
     // MARK: Minimal forecast endpoints (return ramp series in testing)

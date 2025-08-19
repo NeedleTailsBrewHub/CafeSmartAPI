@@ -32,6 +32,7 @@ public actor MongoCacheManager: MongoStore {
   private let seatingAreasCol = "seating_areas"
   private let tablesCol = "tables"
   private let businessConfigCol = "business_config"
+  private let mlModelsCol = "ml_models"
 
   public init(database: MongoDatabase) {
     self.db = database
@@ -366,5 +367,50 @@ public actor MongoCacheManager: MongoStore {
   public func getBusinessConfig() async throws -> BusinessConfig? {
     if let doc = try await db[businessConfigCol].findOne() { return try BSONDecoder().decode(BusinessConfig.self, from: doc) }
     return nil
+  }
+
+  // MARK: - ML Model Artifacts
+  public func createModelArtifact(_ artifact: MLModelArtifact) async throws {
+    try await db[mlModelsCol].insert(try BSONEncoder().encode(artifact))
+  }
+
+  public func listModelArtifacts() async throws -> [MLModelArtifact] {
+    var result: [MLModelArtifact] = []
+    for try await doc in db[mlModelsCol].find() {
+      if let art = try? BSONDecoder().decode(MLModelArtifact.self, from: doc) {
+        result.append(art)
+      }
+    }
+    return result
+  }
+
+  public func findModelArtifact(by id: String) async throws -> MLModelArtifact? {
+    guard let oid = ObjectId(id) else { return nil }
+    if let doc = try await db[mlModelsCol].findOne("_id" == oid) {
+      return try BSONDecoder().decode(MLModelArtifact.self, from: doc)
+    }
+    return nil
+  }
+
+  public func setActiveModel(id: String) async throws {
+    guard let oid = ObjectId(id) else { return }
+    if let current = try await db[mlModelsCol].findOne("_id" == oid) {
+      guard let artifact = try? BSONDecoder().decode(MLModelArtifact.self, from: current) else { return }
+      _ = try await db[mlModelsCol].updateMany(
+        where: ["kind": artifact.kind.rawValue], to: ["$set": ["active": false]])
+      _ = try await db[mlModelsCol].updateOne(
+        where: "_id" == artifact._id, to: ["$set": ["active": true]])
+    }
+  }
+
+  public func deleteModelArtifact(id: String) async throws {
+    guard let oid = ObjectId(id) else { return }
+    if let current = try await db[mlModelsCol].findOne("_id" == oid) {
+      if let art = try? BSONDecoder().decode(MLModelArtifact.self, from: current) {
+        // Best-effort: remove the stored file
+        try? FileManager.default.removeItem(atPath: art.storedAt)
+      }
+    }
+    _ = try await db[mlModelsCol].deleteOne(where: "_id" == oid)
   }
 }

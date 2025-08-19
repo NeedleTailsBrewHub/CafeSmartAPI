@@ -17,7 +17,7 @@ import Crypto
 import Foundation
 import Vapor
 
-public actor TestableMongoStore: MongoStore, MLModelStore {
+public actor TestableMongoStore: MongoStore {
     public let id = UUID()
     
     // In-memory collections

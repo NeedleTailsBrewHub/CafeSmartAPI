@@ -87,10 +87,8 @@ public protocol MongoStore: Sendable {
   // Business config (assume singleton)
   func upsertBusinessConfig(_ config: BusinessConfig) async throws -> BusinessConfig
   func getBusinessConfig() async throws -> BusinessConfig?
-}
 
-// Optional capability for testing: ML model artifact caching in the store
-public protocol MLModelStore: Sendable {
+  // ML model artifacts
   func createModelArtifact(_ artifact: MLModelArtifact) async throws
   func listModelArtifacts() async throws -> [MLModelArtifact]
   func findModelArtifact(by id: String) async throws -> MLModelArtifact?
